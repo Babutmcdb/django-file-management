@@ -122,7 +122,12 @@ class EntryListView(APIView):
             data=request.GET
             id=data.get("id")
             if id:
-                folder = get_object_or_404(Entry, id=id, owner=user).order_by('parent')
+                try:
+                    folder = get_object_or_404(Entry, id=id, owner=user)
+                except Exception as e:
+                    return Response(
+                {"status": status.HTTP_404_NOT_FOUND, "message": "Entry not found or you do not have permission to access it."},
+                status=status.HTTP_404_NOT_FOUND,)
                 if folder.type != 'folder':
                     return Response({'status':status.HTTP_400_BAD_REQUEST,"message": "Only folders can contain entries."}, status=status.HTTP_400_BAD_REQUEST)
 
