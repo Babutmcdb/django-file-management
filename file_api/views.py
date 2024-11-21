@@ -153,5 +153,55 @@ class EntryListView(APIView):
             return Response({'status':status.HTTP_200_OK, 'message': "Record listed successfully!",'data':contents},status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
-            return Response({'status': status.HTTP_500_INTERNAL_SERVER_ERROR, 'message': e},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'status': status.HTTP_500_INTERNAL_SERVER_ERROR, 'message': str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+class EntryListHierarchyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    def get(self, request):
+        try:
+            user = request.user
+            data = request.GET
+            item_id = data.get("id")
+
+            if not item_id:
+                return Response(
+                    {"status": status.HTTP_400_BAD_REQUEST, "message": "Item ID is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            item = get_object_or_404(Entry, id=item_id, owner=user)
+
+            folder_list = []
+            if item.type == "file":
+                folder_list.append({
+                    "id": item.id,
+                    "name": item.name,
+                    "type": item.type,
+                    "parent_id": item.parent.id if item.parent else None,
+                })
+                item = item.parent
+
+            while item is not None:
+                folder_list.append({
+                    "id": item.id,
+                    "name": item.name,
+                    "type": item.type,
+                    "parent_id": item.parent.id if item.parent else None,
+                })
+                item = item.parent
+
+            folder_list = folder_list[::-1]
+
+            return Response(
+                {"status": status.HTTP_200_OK, "message": " Folder listed successfully!", "data": folder_list},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            print(e)
+            return Response(
+                {"status": status.HTTP_500_INTERNAL_SERVER_ERROR, "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
