@@ -21,7 +21,6 @@ class CreateView(APIView):
             type_value = data.get('type')
             parent_id = data.get('parent_id')
             user = request.user
-            print(user,"user")
             if not name or type_value not in ['folder', 'file']:
                 return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "Invalid name or type."})
 
@@ -49,8 +48,12 @@ class RenameView(APIView):
             new_name = data.get('name')
             id = data.get('id')
             user = request.user
-
-            entry = get_object_or_404(Entry, id=id, owner=user)
+            try:
+                entry = get_object_or_404(Entry, id=id, owner=user)
+            except Exception as e:
+                return Response(
+            {"status": status.HTTP_404_NOT_FOUND, "message": "Entry not found or you do not have permission to access it."},
+            status=status.HTTP_404_NOT_FOUND)
             if not new_name:
                 return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "New name is required."})
 
@@ -76,7 +79,7 @@ class EntryDeleteView(APIView):
             except Exception as e:
                 return Response(
             {"status": status.HTTP_404_NOT_FOUND, "message": "Entry not found or you do not have permission to access it."},
-            status=status.HTTP_404_NOT_FOUND,)
+            status=status.HTTP_404_NOT_FOUND)
 
             if not entry.parent:
                 return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "Root folders cannot be deleted."},status=status.HTTP_400_BAD_REQUEST,)
@@ -98,8 +101,12 @@ class EntryMoveView(APIView):
             parent_id = data.get('to_parent_id')
             id = data.get('id')
             user = request.user
-
-            entry = get_object_or_404(Entry, id=id, owner=user)
+            try:
+                entry = get_object_or_404(Entry, id=id, owner=user)
+            except Exception as e:
+                return Response(
+            {"status": status.HTTP_404_NOT_FOUND, "message": "Entry not found or you do not have permission to access it."},
+            status=status.HTTP_404_NOT_FOUND,)
             new_parent = get_object_or_404(Entry, id=parent_id, owner=user) if parent_id else None
 
             if new_parent and new_parent.type != 'folder':
@@ -121,6 +128,7 @@ class EntryListView(APIView):
             user = request.user
             data=request.GET
             id=data.get("id")
+            name = data.get("name")
             if id:
                 try:
                     folder = get_object_or_404(Entry, id=id, owner=user)
@@ -132,13 +140,17 @@ class EntryListView(APIView):
                     return Response({'status':status.HTTP_400_BAD_REQUEST,"message": "Only folders can contain entries."}, status=status.HTTP_400_BAD_REQUEST)
 
                 children = folder.children.all()
+                if name:
+                    children = children.filter(name__icontains=name)
 
                 contents = [{"id": child.id, "name": child.name, "type": child.type} for child in children]
             else:
                 folder =Entry.objects.filter(owner=user)
+                if name:
+                    folder = folder.filter(name__icontains=name)
                 if folder:
                     contents = [{"id": child.id, "name": child.name, "type": child.type,"parent_id":child.parent.id if child.parent else ""} for child in folder]
-            return Response({'status':status.HTTP_200_OK, 'message': "Record moved successfully!",'data':contents},status=status.HTTP_200_OK)
+            return Response({'status':status.HTTP_200_OK, 'message': "Record listed successfully!",'data':contents},status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             return Response({'status': status.HTTP_500_INTERNAL_SERVER_ERROR, 'message': e},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
